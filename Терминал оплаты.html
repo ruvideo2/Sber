@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Терминал оплаты</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --green:#21a038; --green-deep:#127a28; --ink:#14301b; --muted:#6b8272; --card:#ffffff; --key:#eef5ef; --bg:#dfeee2;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+:root:not([data-theme="light"]){}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--ink:#e6f4e9; --muted:#8fae97; --card:#14241a; --key:#1d3325; --bg:#0b140e;}
+}
+:root[data-theme="dark"]{--ink:#e6f4e9; --muted:#8fae97; --card:#14241a; --key:#1d3325; --bg:#0b140e;}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+body{margin:0;height:100%;background:var(--bg);font-family:'Manrope',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:var(--ink);display:flex;align-items:center;justify-content:center}
+.terminal{position:fixed;inset:0;width:100%;height:100%;background:var(--card);overflow:hidden}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;padding:max(28px,env(safe-area-inset-top,0px)) max(24px,calc((100% - 540px)/2)) max(28px,env(safe-area-inset-bottom,0px));opacity:0;visibility:hidden;transform:scale(.97);transition:opacity .5s ease,transform .5s ease,visibility 0s .5s}
+.screen.active{opacity:1;visibility:visible;transform:none;transition:opacity .5s ease,transform .5s ease}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;color:var(--green)}
+.brand i{width:26px;height:26px;border-radius:50%;background:conic-gradient(from 200deg,#21a038,#a5d63f,#21a038);display:block}
+.label{margin:28px 0 6px;color:var(--muted);font-weight:500;font-size:16px}
+.amount{font-size:clamp(44px,13vw,60px);font-weight:800;letter-spacing:-.02em;min-height:1.2em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.amount.empty{color:var(--muted);opacity:.5}
+.keys{margin-top:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.keys button{height:64px;border:0;border-radius:18px;background:var(--key);color:var(--ink);font:700 26px 'Manrope',system-ui,sans-serif;cursor:pointer;transition:transform .12s,background .2s}
+.keys button:active{transform:scale(.94);background:#cfe6d3}
+.keys button:focus-visible,.go:focus-visible,.method:focus-visible,.back:focus-visible{outline:3px solid var(--green);outline-offset:3px}
+.go{margin-top:14px;height:66px;border:0;border-radius:20px;background:var(--green);color:#fff;font:800 20px 'Manrope',system-ui,sans-serif;cursor:pointer;transition:transform .12s,opacity .3s,background .2s}
+.go:disabled{opacity:.35;cursor:default}
+.go:not(:disabled):active{transform:scale(.97);background:var(--green-deep)}
+.back{align-self:flex-start;border:0;background:none;color:var(--muted);font:700 16px 'Manrope',system-ui,sans-serif;padding:6px 0;cursor:pointer}
+.sum{margin:18px 0 0;font-size:44px;font-weight:800;letter-spacing:-.02em}
+.methods{margin-top:auto;display:grid;gap:14px}
+.method{display:flex;align-items:center;gap:18px;padding:20px 22px;border:0;border-radius:24px;background:var(--key);color:var(--ink);font:800 22px 'Manrope',system-ui,sans-serif;text-align:left;cursor:pointer;transition:transform .15s,background .25s,color .25s}
+.method svg{width:48px;height:48px;flex:none;stroke:var(--green);transition:stroke .25s}
+.method small{display:block;font-weight:500;font-size:14px;color:var(--muted);margin-top:3px;transition:color .25s}
+.method:active{transform:scale(.97);background:var(--green);color:#fff}
+.method:active svg{stroke:#fff}.method:active small{color:#e3f6e7}
+.methods .method:first-child{background:var(--green);color:#fff}
+.methods .method:first-child svg{stroke:#fff}.methods .method:first-child small{color:#e3f6e7}
+#ok{background:var(--green);color:#fff;align-items:center;justify-content:center;text-align:center}
+.badge{position:relative;width:150px;height:150px;display:grid;place-items:center}
+.badge .ring{position:absolute;inset:0;border-radius:50%;border:3px solid rgba(255,255,255,.7);opacity:0}
+.badge .disc{position:absolute;inset:14px;border-radius:50%;background:#fff;transform:scale(0)}
+.badge svg{position:relative;width:70px;height:70px}
+.badge path{fill:none;stroke:var(--green);stroke-width:7;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:100 200;stroke-dashoffset:100;opacity:0}
+#ok.active .disc{animation:pop .55s cubic-bezier(.2,1.4,.4,1) .1s forwards}
+#ok.active .badge path{animation:draw .45s ease-out .55s forwards}
+#ok.active .ring{animation:ring 1.3s ease-out .35s}
+#ok.active .ring+.ring{animation-delay:.6s}
+#ok h2{margin:30px 0 6px;font-size:32px;font-weight:800;opacity:0;transform:translateY(8px)}
+#ok p{margin:0;font-size:20px;font-weight:500;opacity:0;transform:translateY(8px)}
+#ok.active h2{animation:up .5s ease .8s forwards}
+#ok.active p{animation:up .5s ease .95s forwards}
+.tap{flex:1;position:relative;display:grid;place-items:center;min-height:0}
+.waves span{position:absolute;left:50%;top:42%;width:300px;height:300px;margin:-150px 0 0 -150px;border-radius:50%;border:3px solid var(--green);opacity:0;animation:wave 2.4s ease-out infinite}
+.waves span:nth-child(2){animation-delay:.8s}
+.waves span:nth-child(3){animation-delay:1.6s}
+.card{position:absolute;left:50%;top:42%;width:190px;height:120px;margin:-60px 0 0 -95px;border-radius:18px;background:linear-gradient(135deg,var(--green),var(--green-deep));box-shadow:0 14px 30px rgba(18,122,40,.35);animation:approach 2.4s ease-in-out infinite}
+.card::before{content:"";position:absolute;left:18px;top:22px;width:34px;height:26px;border-radius:6px;background:linear-gradient(135deg,#f3dc8a,#c9a94a)}
+.card::after{content:"";position:absolute;left:18px;bottom:20px;width:100px;height:8px;border-radius:4px;background:rgba(255,255,255,.35)}
+@keyframes approach{0%{transform:translateY(150px) rotate(-8deg) scale(.9)}55%,100%{transform:none}}
+@keyframes wave{0%{transform:scale(.2);opacity:.8}100%{transform:scale(1.2);opacity:0}}
+@keyframes pop{to{transform:scale(1)}}
+@keyframes draw{from{opacity:1}to{opacity:1;stroke-dashoffset:0}}
+@keyframes ring{0%{transform:scale(.7);opacity:.9}100%{transform:scale(1.9);opacity:0}}
+@keyframes up{to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.screen,.screen.active{transition-duration:.01s}#ok.active .ring{animation:none}}
+</style>
+</head>
+<body>
+<main class="terminal">
+
+  <section class="screen active" id="s1" aria-label="Сумма">
+    <div class="brand"><i></i>Терминал</div>
+    <div class="label">Сумма к оплате</div>
+    <div class="amount empty" id="amt" aria-live="polite">0 ₽</div>
+    <div class="keys" id="keys"></div>
+    <button class="go" id="next" disabled>Продолжить</button>
+  </section>
+
+  <section class="screen" id="s2" aria-label="Способ оплаты">
+    <button class="back" id="back">‹ Изменить сумму</button>
+    <div class="label" style="margin-top:14px">К оплате</div>
+    <div class="sum" id="sum"></div>
+    <div class="methods">
+      <button class="method" data-m="qr">
+        <svg viewBox="0 0 48 48" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="14" height="14" rx="3"/><rect x="28" y="6" width="14" height="14" rx="3"/><rect x="6" y="28" width="14" height="14" rx="3"/><path d="M28 28h5v5M42 28v0M28 42h5M38 36v6h4M42 33v0"/></svg>
+        <span>Оплата по QR-коду<small>Покажите код на экране телефона</small></span>
+      </button>
+      <button class="method" data-m="face">
+        <svg viewBox="0 0 48 48" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V9a3 3 0 0 1 3-3h7M32 6h7a3 3 0 0 1 3 3v7M42 32v7a3 3 0 0 1-3 3h-7M16 42H9a3 3 0 0 1-3-3v-7"/><path d="M17 29c1.6 3 4 4.5 7 4.5s5.4-1.500 7-4.500"/><path d="M18 19v2M30 19v2"/></svg>
+        <span>Оплата улыбкой<small>Посмотрите в камеру и улыбнитесь</small></span>
+      </button>
+      <button class="method" data-m="nfc">
+        <svg viewBox="0 0 48 48" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="26" height="18" rx="4"/><path d="M5 18h26"/><path d="M36 20c3 3 3 9 0 12M41 16c5 6 5 14 0 20"/></svg>
+        <span>Картой / NFC<small>Приложите карту или телефон</small></span>
+      </button>
+    </div>
+  </section>
+
+  <section class="screen" id="nfc" aria-label="Оплата картой">
+    <button class="back" id="nfcCancel">‹ Отмена</button>
+    <div class="label" style="margin-top:14px">Приложите карту или телефон</div>
+    <div class="sum" id="nfcsum"></div>
+    <div class="tap">
+      <div class="waves"><span></span><span></span><span></span></div>
+      <div class="card"></div>
+    </div>
+  </section>
+
+  <section class="screen" id="ok" aria-live="polite">
+    <div class="badge">
+      <span class="ring"></span><span class="ring"></span>
+      <span class="disc"></span>
+      <svg viewBox="0 0 70 70"><path pathLength="100" d="M14 37l14 14 28-30"/></svg>
+    </div>
+    <h2>Оплачено</h2>
+    <p id="paid"></p>
+  </section>
+
+</main>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var value="";
+  var screens={s1:$("s1"),s2:$("s2"),nfc:$("nfc"),ok:$("ok")};
+  var busy=false;
+
+  function fmt(v){return Number(v).toLocaleString("ru-RU")+" ₽"}
+  function render(){
+    var a=$("amt");
+    a.textContent=value?fmt(value):"0 ₽";
+    a.classList.toggle("empty",!value);
+    $("next").disabled=!value;
+  }
+  function show(name){
+    for(var k in screens)screens[k].classList.toggle("active",k===name);
+  }
+
+  var keys=$("keys");
+  ["1","2","3","4","5","6","7","8","9","00","0","⌫"].forEach(function(k){
+    var b=document.createElement("button");
+    b.type="button";b.textContent=k;
+    if(k==="⌫")b.setAttribute("aria-label","Стереть");
+    b.onclick=function(){
+      if(k==="⌫")value=value.slice(0,-1);
+      else if((value+k).replace(/^0+/,"").length<=7)value=(value+k).replace(/^0+/,"");
+      render();
+    };
+    keys.appendChild(b);
+  });
+
+  $("next").onclick=function(){
+    if(!value)return;
+    $("sum").textContent=fmt(value);
+    show("s2");
+  };
+  $("back").onclick=function(){show("s1")};
+
+  var ctx;
+  function chime(){
+    try{
+      ctx=ctx||new (window.AudioContext||window.webkitAudioContext)();
+      if(ctx.state==="suspended")ctx.resume();
+      var t=ctx.currentTime;
+      [[880,0],[1318.5,.14],[1760,.28]].forEach(function(n){
+        var o=ctx.createOscillator(),g=ctx.createGain();
+        o.type="sine";o.frequency.value=n[0];
+        g.gain.setValueAtTime(0,t+n[1]);
+        g.gain.linearRampToValueAtTime(.28,t+n[1]+.02);
+        g.gain.exponentialRampToValueAtTime(.001,t+n[1]+.6);
+        o.connect(g);g.connect(ctx.destination);
+        o.start(t+n[1]);o.stop(t+n[1]+.65);
+      });
+    }catch(e){}
+  }
+
+  var nfcTimer;
+  function pay(){
+    chime();
+    $("paid").textContent=fmt(value);
+    show("ok");
+    setTimeout(function(){
+      show("s1");
+      setTimeout(function(){value="";render();busy=false},500);
+    },3200);
+  }
+  document.querySelectorAll(".method").forEach(function(btn){
+    btn.onclick=function(){
+      if(busy)return;busy=true;
+      if(btn.dataset.m==="nfc"){
+        $("nfcsum").textContent=fmt(value);
+        show("nfc");
+        nfcTimer=setTimeout(pay,2800);
+      }else pay();
+    };
+  });
+  $("nfcCancel").onclick=function(){clearTimeout(nfcTimer);busy=false;show("s2")};
+  render();
+})();
+</script>
+</body>
+</html>
